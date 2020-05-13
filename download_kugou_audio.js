@@ -108,15 +108,15 @@
             let req_url = "https://wwwapi.kugou.com/yy/index.php?r=play/getdata&hash=" + _hash + "&album_id=" + _album_id + "&dfid=&mid=&platid=4";
             console.log("请求地址：", req_url);
             try {
-                //已下载的不下载 
+                //已下载的不下载，也不提醒
                 if (list[_hash]) {
                     console.log("已下载",obj);
-                    notify("已下载");
                     continue;
                 }
                 var res = await promise_fetch(req_url);
-                //试听
+                //试听音乐也加到已加载列表
                 if (res.is_free_part) {
+                    list[res.hash] = 1;
                     var txt = `${res.audio_name}为试听音乐`;
                     console.log(txt);
                     notify(txt);
