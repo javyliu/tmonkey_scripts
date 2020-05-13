@@ -120,6 +120,10 @@
                     var txt = `${res.audio_name}为试听音乐`;
                     console.log(txt);
                     notify(txt);
+                    //如果是试听音乐且是单曲播放时，则返回1，利于后期处理
+                    if(ary_obj.length == 1){
+                        return 1;
+                    }
                     continue;
                 }
                 var extname = res.play_url.match(/\.([\w]+?$)/)[1];
@@ -148,10 +152,18 @@
         });
     }else{
         window.addEventListener("hashchange", function(ev){
-            download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}]);           
+            download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}])
+            .then(function(_return){
+                //单曲时如果列表不只一首，则播放下一首
+                if(_return == 1 && (JSON.parse($.jStorage.get("k_play_list"))).length > 1){
+                    console.log("跳过--------------");
+                    $("#next").trigger("click");//不播放试听音乐
+                }
+            });           
         });
     }
 
+    //头部添加清除下载记录按钮
     $("body").prepend("<button id='clear_download_list'>clear download list</button>");
     $("#clear_download_list").on("click", function(){
         GM_deleteValue("download_list");
