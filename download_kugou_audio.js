@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         自动下载酷狗音乐
 // @namespace    javyliu
-// @version      0.7
+// @version      0.8
 // @description  在酷狗音乐播放页面下载所听歌曲到本地，仅在chrome下测试通过，当第一次打开播放界面时，如果仅播放一首歌，那么是通过hash变化触发下载，也就是在列表页再次点击新的一首歌时会触发下载，试听音乐不下载，不会重复下载
 // @author       javy_liu
 // @include      *://*.kugou.com/song*
