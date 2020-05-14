@@ -96,10 +96,10 @@
                 url: res_url,
                 name: file_name,
                 onload: function () {
-                    resolve(`${file_name}下载完成`);
+                    resolve(`${file_name} 下载完成`);
                 },
                 onerror: function (error) {
-                    reject(`${file_name}下载失败${error}`);
+                    reject(`${file_name} 下载失败 ${error.error}`);
                 }
             });
         });
@@ -227,9 +227,10 @@
         let ori_change = unsafeWindow.onplaychange;
         unsafeWindow.onplaychange = function(){
             ori_change.apply(this,arguments);
-            setTimeout(() => {
+            console.log("----------onplaychange");
+            // setTimeout(() => {
                 netease_download();
-            }, 1000);
+            // }, 1000);
         }.bind(unsafeWindow);   
       
     };
@@ -258,7 +259,7 @@
             });
 
             console.log(play_info);            
-            let song_name = `${song_item.detail.songName}_${song_item.detail.artistName}.${play_info.format}`;           
+            let song_name = `${song_item.detail.songName.replace(/\W/g,"_")}_${song_item.detail.artistName}.${play_info.format}`;           
 
             promise_download(play_info.listenFile, song_name).then(res => {
                 list[`xm_${song_id}`] = 1;
@@ -294,8 +295,10 @@
 
     let netease_download = function(){
         try {
+            if(!unsafeWindow.player)  return 0;
+
             let url = unsafeWindow.cAi5n;
-            let playinfo = window.player.getPlaying();
+            let playinfo = unsafeWindow.player.getPlaying();
 
             console.log("--------播放信息：",playinfo);
             if(list[`netease_${playinfo.track.id}`]){
@@ -304,13 +307,16 @@
             }
 
             let extname = url.match(/\.([\w]+?$)/)[1];
-            let articles = playinfo.track.artists.map((item) => item.name).join(".");
+            let articles = playinfo.track.artists.map((item) => item.name).join("_");
             let song_name = `${playinfo.track.name}_${articles}.${extname}`;
 
             promise_download(url, song_name).then(res => {
                 list[`netease_${playinfo.track.id}`] = 1;
                 GM_setValue("download_list", list);
                 notify(`${song_name} 下载完成！` );
+            })
+            .catch(error => {
+                console.log(error);
             });
         } catch (error) {
             console.log(error);
@@ -350,7 +356,7 @@
    
 
     //头部添加清除下载记录按钮
-    $("body").prepend("<button id='clear_download_list'>clear download list</button>");
+    $("body").prepend(`<button id='clear_download_list' style="position:absolute;left:0px;top:0;z-index:1000;background-color: green;padding:10px;color:white;opacity: 0.7;">clear download list</button>`);
     $("#clear_download_list").on("click", function(){
         GM_deleteValue("download_list");
         console.log("list:",GM_getValue("download_list"));
