@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         网页音乐播放自动下载音乐文件
 // @namespace    javyliu
-// @version      0.9
+// @version      1.0
 // @description  在酷狗音乐播放页面下载所听歌曲到本地，仅在chrome下测试通过，当第一次打开播放界面时，如果仅播放一首歌，那么是通过hash变化触发下载，也就是在列表页再次点击新的一首歌时会触发下载，试听音乐不下载，不会重复下载
 // @author       javy_liu
 // @include      *://*.kugou.com/song*
@@ -228,6 +228,7 @@
     };
 
     let xiami_download = function(cobj){
+        console.count("--------xiami_download called----");
         try {
             let song_id = cobj.audio.currentSrc.match(/fn=(\d+)_/)[1];
             if (!song_id) {
@@ -246,12 +247,14 @@
                 throw new Error("歌曲不存在");
             }
 
+            console.log(song_item.detail.songName);
+
             let play_info = song_item.playInfo.find((item)=>{
                 return item.listenFile && item.listenFile.length > 0;
             });
 
             console.log(play_info);            
-            let song_name = `${song_item.detail.songName.replace(/\W/g,"_")}_${song_item.detail.artistName}.${play_info.format}`;           
+            let song_name = `${song_item.detail.songName.replace(/\s+/g,"_")}_${song_item.detail.artistName}.${play_info.format}`;           
 
             promise_download(play_info.listenFile, song_name).then(res => {
                 list[`xm_${song_id}`] = 1;
