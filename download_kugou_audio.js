@@ -46,7 +46,7 @@
         return keyValue;
     }
 
-    //通过文档对像得到react组件对像
+    //通过文档对像得到react组件对像,虾米用
     function get_react_com(dom, traverseUp = 0) {
         const key = Object.keys(dom).find(key=>key.startsWith("__reactInternalInstance$"));
         const domFiber = dom[key];
@@ -123,7 +123,7 @@
                     }                  
                 },
                 onerror: function(err){
-                    console.log("请求地址失败");
+                    console.error("请求地址失败", err);
                     reject("请求地址失败");
                 }
             });  
@@ -169,7 +169,7 @@
                 console.log(res);
                 notify(res);
             } catch (error) {
-                console.log(error);
+                console.error(error);
                 notify(error);                
             }
         }
@@ -267,7 +267,7 @@
                 notify(`${song_name} 下载完成！` );
             });
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
 
         /*
@@ -316,10 +316,10 @@
                 notify(`${song_name} 下载完成！` );
             })
             .catch(error => {
-                console.log(error);
+                console.error(error);
             });
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
     };
 
