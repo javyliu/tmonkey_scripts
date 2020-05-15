@@ -1,13 +1,14 @@
  /* jshint esversion: 8 */
 // ==UserScript==
-// @name         自动下载酷狗音乐
+// @name         网页音乐播放自动下载音乐文件
 // @namespace    javyliu
-// @version      0.8
+// @version      0.9
 // @description  在酷狗音乐播放页面下载所听歌曲到本地，仅在chrome下测试通过，当第一次打开播放界面时，如果仅播放一首歌，那么是通过hash变化触发下载，也就是在列表页再次点击新的一首歌时会触发下载，试听音乐不下载，不会重复下载
 // @author       javy_liu
 // @include      *://*.kugou.com/song*
 // @include      *://*.xiami.com/*
 // @include      *://music.163.com/*
+// @include      *://y.qq.com/*
 
 // @require      https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js
 // @grant        GM_download
@@ -136,6 +137,42 @@
     //for of 内部 break, return 会跳出循环.
     let list = GM_getValue("download_list") || {};
 
+  
+
+    
+    let base_url = location.href;
+    const KuGou = 'kugou.com';
+    const XiaMi = 'xiami.com';
+    const Netease = '163.com';
+    const Qq = 'y.qq.com';
+    let reg = new RegExp(`${KuGou}|${XiaMi}|${Netease}|${Qq}`.replace(/\./g, "\\."));
+    let match_domain = base_url.match(reg)[0];
+
+    let exec_in_kugou = function(){
+        let play_list = JSON.parse($.jStorage.get("k_play_list"));
+        //播放页面第一次打开为列表时，批量下载列表，否则通过监听hash地址变化触发下载
+        if(play_list && play_list.length > 1){
+            console.log("有列表：", play_list);
+            download_kugou(play_list).then(function(){
+                console.log("列表中的已下载完，增加单曲监听");
+                window.addEventListener("hashchange", function(ev){
+                    download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}]);           
+                });
+            });
+        }else{
+            window.addEventListener("hashchange", function(ev){
+                download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}])
+                .then(function(_return){
+                    //单曲时如果列表不只一首，则播放下一首
+                    if(_return == 1 && (JSON.parse($.jStorage.get("k_play_list"))).length > 1){
+                        console.log("跳过--------------");
+                        $("#next").trigger("click");//不播放试听音乐
+                    }
+                });           
+            });
+        }
+    };
+
     let download_kugou = async function(ary_obj){
         for (var obj of ary_obj) {
             let _hash = obj.Hash;
@@ -175,39 +212,6 @@
         }
     };
 
-    
-    let base_url = location.href;
-    const KuGou = 'kugou.com';
-    const XiaMi = 'xiami.com';
-    const Netease = '163.com';
-    let reg = new RegExp(`${KuGou}|${XiaMi}|${Netease}`.replace(/\./g, "\\."));
-    let match_domain = base_url.match(reg)[0];
-
-    let exec_in_kugou = function(){
-        let play_list = JSON.parse($.jStorage.get("k_play_list"));
-        //播放页面第一次打开为列表时，批量下载列表，否则通过监听hash地址变化触发下载
-        if(play_list && play_list.length > 1){
-            console.log("有列表：", play_list);
-            download_kugou(play_list).then(function(){
-                console.log("列表中的已下载完，增加单曲监听");
-                window.addEventListener("hashchange", function(ev){
-                    download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}]);           
-                });
-            });
-        }else{
-            window.addEventListener("hashchange", function(ev){
-                download_kugou([{'Hash': ev.target.Hash, 'album_id': ev.target.album_id}])
-                .then(function(_return){
-                    //单曲时如果列表不只一首，则播放下一首
-                    if(_return == 1 && (JSON.parse($.jStorage.get("k_play_list"))).length > 1){
-                        console.log("跳过--------------");
-                        $("#next").trigger("click");//不播放试听音乐
-                    }
-                });           
-            });
-        }
-    };
-
     let exec_in_xiami = function(){
         let play_box_com = get_react_com($(".player")[0]);
         let inject_methods = ['play','playMusic','playNext','playPrev'];
@@ -220,18 +224,6 @@
                 xiami_download(this);
             }.bind(play_box_com);
         }
-      
-    };
-
-    let exec_in_netease = function(){
-        let ori_change = unsafeWindow.onplaychange;
-        unsafeWindow.onplaychange = function(){
-            ori_change.apply(this,arguments);
-            console.log("----------onplaychange");
-            // setTimeout(() => {
-                netease_download();
-            // }, 1000);
-        }.bind(unsafeWindow);   
       
     };
 
@@ -293,6 +285,18 @@
         
     };
 
+    let exec_in_netease = function(){
+        let ori_change = unsafeWindow.onplaychange;
+        unsafeWindow.onplaychange = function(){
+            ori_change.apply(this,arguments);
+            console.log("----------onplaychange");
+            // setTimeout(() => {
+                netease_download();
+            // }, 1000);
+        }.bind(unsafeWindow);   
+      
+    };   
+
     let netease_download = function(){
         try {
             if(!unsafeWindow.player)  return 0;
@@ -323,6 +327,56 @@
         }
     };
 
+    //注入的getSongUrl方法会被调用多次，所以需要限制下,如果下载失败需刷新后才会再次触发下载
+    let pre_download_list = {};
+    let exec_in_qq = function(){
+        let ori_mtd = unsafeWindow.MUSIC.util.getSongUrl;        
+        unsafeWindow.MUSIC.util.getSongUrl = function(arg){
+            let res = ori_mtd.call(this,arg);
+            setTimeout(() => void qq_download(arg), 1000 );
+            return res;          
+        };   
+      
+    };
+
+    let qq_download = function(playinfo){
+        try {
+            if( pre_download_list[playinfo.songid]==1) return 0;
+            if(!playinfo.songid) return 0;
+            
+            if(list[`qq_${playinfo.songid}`]){
+                console.log(`${playinfo.songid} 已下载`);
+                return 0;
+            } 
+            //预下载标记
+            pre_download_list[playinfo.songid]=1;
+
+            let song_url = playinfo.playUrl || $("audio")[0].src;
+
+            // console.log("-------------需下载对像地址----------------");
+            // console.log("1:",playinfo.playUrl);
+            // console.log("2:",song_url);
+
+            let extname = song_url.match(/\.(\w+)\?/)[1];
+            let song_name = `${playinfo.songname}_${playinfo.singername}.${extname}`;
+
+            promise_download(song_url, song_name).then(res => {
+                list[`qq_${playinfo.songid}`] = 1;
+                pre_download_list[playinfo.songid] = 0;
+                GM_setValue("download_list", list);
+                notify(`${song_name} 下载完成！` );
+            })
+            .catch(error => {
+                pre_download_list[playinfo.songid] = 0;
+                console.error(error);
+            });
+        } catch (error) {
+            pre_download_list[playinfo.songid] = 0;
+            console.error(error);
+        }
+    };
+
+
     console.log("----------------------",match_domain);
     switch (match_domain) {
         case KuGou:
@@ -333,8 +387,12 @@
             break;
         case Netease:
             exec_in_netease();
-            break;
-    
+            break;    
+        case Qq:
+            setTimeout(()=>{
+                exec_in_qq();
+            },2000);
+            break;    
         default:
             break;
     }
